@@ -1,37 +1,49 @@
 # Модулі
-from pygame import *
-import sys
 import socket
 import json
-from threading import Thread
+import threading
+import time
 import random
-init()
 
 # Розміри вікна
 WIDTH, HEIGHT = 800, 600
 
-# Кольори
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+# Швидкість м'яча
+SPEED_BALL = 4
 
-# FPS
-FPS = 60
+# Швидкість ракетки
+SPEED_PADDLE = 7
 
-# Вікно
-window = display.set_mode((WIDTH, HEIGHT))
-display.set_caption("Ping Pong")
-clock = time.Clock()
+# Клас GameServer
+class GameServer:
+    def __init__(self, host="localhost", port='12345'):
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((host, port))
+        self.server.listen(2)
+        print("Server started...")
 
-# Запуск гри
-game = True
+        self.clients = {0 : None, 1 : None}
+        self.connected = {0 : False, 1 : False}
 
-while game:
-    for e in event.get():
-        if e.type == QUIT:
-            game = False
+    def run(self):
+        while True:
+            self.accept_players()
+            self.reset_game_player()
+            threading.Thread(target=self.ball, daemon=True).start()
 
-    display.flip()
-    clock.tick(FPS)
+            while not self.game_over and all(self.connected.values()):
+                time.sleep(0.1)
+            
+            print("Гравець переміг")
+            time.sleep(5)
 
-quit()
-sys.exit()
+            for player_id in [0, 1]:
+                try:
+                    self.clients[player_id].close()
+                except:
+                    pass
+
+                self.clients[player_id] = None
+                self.connected[player_id] = False
+
+GameServer().run()
